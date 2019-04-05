@@ -27,4 +27,14 @@ bikenet_tall <- bikenet_tall %>%
 
 # the inverse to separate
 bikenet_tall <- bikenet_tall %>% 
-  separate(street, c("name", "suffix"))
+  separate(street, c("name", "suffix")) #breaks it into two
+  #can change the separator type, can change which separator to choose
+
+bikenet_tall %>% filter(bikeid == 139730)
+
+fac_lengths <- bikenet_tall %>% 
+  filter(facility %in% c("BKE-LANE","BKE-BLVD","BKE-BUFF",
+                         "BKE-TRAK","PTH-REMU")) %>% #filters types i want
+  group_by(year, facility) %>% 
+  summarize(meters = sum(length_m)) %>% 
+  mutate(miles = meters/1609)

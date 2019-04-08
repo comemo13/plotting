@@ -1,0 +1,57 @@
+---
+title: "Intro to RMarkdown"
+author: Colleen Mossor
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+#install.packages("DT")
+library(DT)
+```
+
+## Purpose
+Demostrate how to use RMarkdown using biketown data. We will make a few plots, show some code, and play around with formatting in RMarkdown. 
+```{r biketown, include = F}
+# ^if you use "include = F" it wont show the data either
+# results = hide shows only code
+# echo = F hides code but shows results
+bike_1807 <- read.csv("data/biketown/2018_07.csv", stringsAsFactors = F)
+
+#Avg distance travelled based on payment plan
+avg_dist <- bike_1807 %>% 
+  group_by(PaymentPlan) %>% 
+  summarise(avg_miles = mean(Distance_Miles))
+
+# tammy's version
+
+pm_fig <- avg_dist %>% 
+  ggplot(aes(x = PaymentPlan, y = avg_miles, fill = PaymentPlan))+
+  geom_bar(stat = "identity") +
+  # ^must use stat=identity or you get a frequency
+  xlab("Payment Plan") + ylab("Average Miles") +
+  geom_text(aes(label=round(avg_miles,1)))
+pm_fig
+
+# my original version before tammy's
+# g <- ggplot(avg_dist, aes(PaymentPlan, avg_dst))
+# g + geom_bar(stat = "identity") +
+#   geom_text()
+
+
+```
+```{r pm_fig, echo = F}
+pm_fig
+```
+
+```{r PM_TABLE, ECHO = F}
+# adds in a table after installing the DT package
+datatable(avg_dist, options = list(
+          pagelength = 15),
+          caption = "Table"
+)
+```
+

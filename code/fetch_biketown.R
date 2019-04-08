@@ -10,10 +10,13 @@ pacman::p_load("stringr")
 pacman::p_load("readr")
 
 # function to grab data from website
-get_data <- function(start, end,
+get_data <- function(start="7/2016", end=NULL, #adding defaults
                      base_url="https://s3.amazonaws.com/biketown-tripdata-public/",
                      outdir="data/biketown/"){
   # ^takes start and end in mm/yyyy and tries to download files
+  
+  # If no end date given, set to now
+  end <- ifelse(is.null(end),format(now(),"%m/%Y"),end)
   
   # make url function that's only available within get_data
   make_url <- function(date, base_url){
@@ -36,7 +39,7 @@ get_data <- function(start, end,
   for (u in urls) {
     download.file(u, destfile = paste0(outdir, 
                                        str_sub(u,-11)))
-    # ^for ever url from the urls list, it will download
+    # ^for every url from the urls list, it will download
   }
   
 }
@@ -45,9 +48,9 @@ get_data <- function(start, end,
 
 ### manual run ###
 # params
-start = "6/2018"
-end = "8/2018"
-
-get_data(start, end)
+# start = "11/2018"
+# 
+# get_data(start)
 # ^this works so I will commit
+
 

@@ -38,3 +38,24 @@ fac_lengths <- bikenet_tall %>%
   group_by(year, facility) %>% 
   summarize(meters = sum(length_m)) %>% 
   mutate(miles = meters/1609)
+
+# ggplot start with data, get coordinate plane, and how to represent
+# this is the global, change this to change everything else
+p <- ggplot(fac_lengths, aes(year, miles,  #x=year y=miles
+                             group=facility,
+                             color=facility))
+
+
+# separates representation from the template, need to use geom to visualize
+p + geom_line()
+p + geom_point()
+p + geom_line() + scale_y_log10()
+p + geom_line() + labs(title = "Change in Facilities",
+                       subtitle = "2008 - 2013",
+                       caption = "suorce: Portland Metro") +
+  xlab("year") + ylab("Total miles") 
+  
+p2 <- ggplot(fac_lengths, aes(x=year, y=miles,
+                             group=facility))
+p2 +geom_line(size = 1, color = "blue") + facet_wrap( ~ facility) + scale_y_log10()
+# facet breaks it out into different graphs

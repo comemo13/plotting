@@ -47,7 +47,7 @@ pm_fig
 pm_fig
 ```
 
-```{r PM_TABLE, ECHO = F}
+```{r pm_table, echo = F}
 # adds in a table after installing the DT package
 datatable(avg_dist, options = list(
           pagelength = 15),
@@ -55,3 +55,19 @@ datatable(avg_dist, options = list(
 )
 ```
 
+```{r avg_dist_plan_multiple, echo = F}
+avg_dist2 <- bike_1807 %>% 
+  group_by(PaymentPlan,MultipleRental) %>% 
+  summarise(avg_miles2 = mean(Distance_Miles))
+View(avg_dist2)
+
+pm_fig2 <- avg_dist2 %>% 
+  ggplot(aes(x = PaymentPlan, y = avg_miles2, fill = MultipleRental))+
+  geom_bar(stat = "identity") +
+  # ^must use stat=identity or you get a frequency
+  xlab("Payment Plan") + ylab("Average Miles") +
+  geom_text(aes(label=round(avg_miles2,1)))
+pm_fig2
+
+```
+test 

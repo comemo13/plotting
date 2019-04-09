@@ -1,0 +1,143 @@
+---
+title: "Working with Dates and Regex"
+author: "Colleen Mossor"
+date: "April 9, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, root.dir="../")
+
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(DT)
+
+```
+
+## Purpose
+Explore Biketown data looking at the mean miles travelled per week during the summer of 2018 06/2018 through 09/2018. 
+
+```{r pull data, eval = F, echo = F}
+# multiple isses with this. set eval = F to have it not run
+setwd("../")
+source("code/fetch_biketown.R")
+get_data(start = "06/2018", end = "09/2018")
+```
+
+```{r pull all files, echo = F}
+# for this function to work, must set the working drive to the same location
+# also needs full file path
+
+setwd("C:/Users/cocaldwell/Desktop/R Training/plotting/data/biketown/")
+folder <- "C:/Users/cocaldwell/Desktop/R Training/plotting/data/biketown/"
+# ^assigning the name "folder" to be used in the next section
+
+filenames <-  list.files(path = folder, pattern = "*.csv", all.files=F,
+                         full.names = F, recursive = F, ignore.case = F)
+# ^assigns "filenames" as a list of files with a csv extension
+
+read_csv_filename <- function(filenames){
+  ret <- read.csv(filenames, stringsAsFactors = F, strip.white = T,
+                  na.strings = "")
+  ret$Source <- filenames
+  ret
+}
+# ^ custom function that pulls the lsit of file names created above, and read them
+
+bike_raw <- plyr::ldply(filenames, read_csv_filename)
+# ^combines files into a single dataframe to work with
+
+
+# IF THIS HADN'T WORKED, PULL IN EACH SEPARATELY
+# file1 <- read.csv ("file path")
+# file2 <- read.csv ("file path")
+# 
+# bike_raw_new <-  bind_rows(file1, file2)
+
+```
+
+```{r data wrangling, include = F}
+str(bike_raw)
+
+# combine start date and start time into one column, same with end
+# don't want to mess with the raw data frame, create a new object
+bike_df1  <- bike_raw %>% 
+  mutate(start.datetime = paste(StartDate, StartTime, sep = " "),
+         end.datetime = paste(EndDate, EndTime, sep = " "))
+  # ^ paste vs paste0, paste0 has no separaters, paste does
+
+str(bike_df1)
+# ^new columns show up as chr, need to change to date
+# make sure to include timezone
+
+# check acceptable timezone values
+OlsonNames()
+
+bike_df1$start.datetime <-  mdy_hm(bike_df1$start.datetime, tz ="America/Los_Angeles")
+bike_df1$end.datetime <-  mdy_hm(bike_df1$end.datetime, tz ="America/Los_Angeles")  
+str(bike_df1)
+
+# duration is another date/time issue since it's in chr
+bike_df1$Duration <- hms(bike_df1$Duration)
+# ^throws error "Some strings failed to parse, or all strings are NAs" it winds up rouding the NA values to 1 minute which isn't good
+
+# check for NAs in the raw data file
+sum(is.na(bike_raw$Duration))
+# ^there are 1088 NAs, but since you have start and end time you can calculate this
+
+
+```
+
+'lubridate' has three synonymous functions but they define very different actions:
+
+1. duration()
+    time space are in units of seconds, and there is no start date involved. For example converting        HMS to durtaion, you're not making a calculation.
+2. interval()
+    also measured in units of seconds, and provides the difference beteen start and end
+2. period()
+    measures time span in units larger than seconds, this is handy when accounting for daylight savings     time and leap year. 
+    
+```{r duration_calc}
+# calc interval between start and end times
+bike_df1$interval <-  interval(bike_df1$start.datetime, bike_df1$end.datetime)
+head(bike_df1$interval)
+
+# calc duration
+bike_df1$duration.all <- as.duration(bike_df1$interval)
+head(bike_df1$duration.all)
+
+# calculate period
+bike_df1$period <- as.period(bike_df1$duration.all)
+head(bike_df1$period)
+
+```
+
+```{r floor_date}
+# floor_date() is helpful for aggregating
+
+bike_weekagg <- bike_df1 %>% 
+  mutate(week.datetime = lubridate::floor_date(start.datetime, unit = "week"))
+  # ^looks at all values and sets them to the first day of the week, sunday if first day of week
+  # ^ceiling date will move it to the cloest date going forward
+  # there's also a round date
+head(bike_weekagg$week.datetime)
+
+avg_weekly_dist <- bike_weekagg %>% 
+  group_by(week.datetime) %>% 
+  summarise(avg_dist = mean(Distance_Miles))
+View(avg_weekly_dist)
+
+avg_weekly_fig <- avg_weekly_dist %>% 
+  ggplot(aes(x = as.Date(week.datetime), y = avg_dist))+
+  geom_bar(stat = "identity", fill = "pink") +
+  # ^must use stat=identity or you get a frequency
+  scale_x_date(date_breaks = "1 week") +
+  xlab("Week") + ylab("Average Distance") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_text(aes(label=round(avg_dist,1)))
+avg_weekly_fig 
+
+
+```
+

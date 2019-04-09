@@ -1,0 +1,118 @@
+---
+title: "Split-Apply-Combine"
+author: "Colleen Mossor"
+date: "April 9, 2019"
+output: html_document
+---
+##Purpose
+Look into weather and see how it impacts the seasonality of bike commuting
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# issues with running the chunks of code. work around was to put the Rmd file in the same location as the project directory
+
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(modelr)
+library(purrr)
+library(broom)
+
+```
+
+```{r load data}
+# loading the load_counts.R script
+source("code/load_counts.R")
+# ^because the function itself calls the function, we don't have to also call it here
+
+```
+
+'dplyr' joins. Left join below returns each row in bike counts with easch matching weather row, binding by date. For more, check out the cheat sheet. 
+```{r join data}
+# will be joining weather to bike counts
+
+bike_count_wx <-  bike_counts %>% 
+  left_join(weather, by = c("date" = "DATE")) %>%  # x= bikecountwx
+  select(date, bridge, total, TMIN, TMAX, PRCP)
+
+```
+
+```{r explore data}
+bike_count_wx %>%  ggplot(aes(x = date, y = total,
+       group = bridge, color = bridge)) +
+  geom_line() + facet_grid(bridge ~ .) #facet_wrap(bridge ~ .) is a different option
+
+bike_count_wx %>%  ggplot(aes(x = date, y = total,
+       group = bridge, color = bridge)) +
+  geom_line() + facet_wrap(bridge ~ .) 
+
+bike_count_wx %>%  ggplot(aes(x = date, y = total,
+       group = bridge, color = bridge)) +
+  geom_line() + facet_grid(bridge ~ .) + ylim(c(0,10000))
+
+```
+
+```{r explore some summary stats}
+# average daily by bridge count
+bike_count_wx %>% 
+  dplyr::group_by(bridge) %>% 
+  dplyr::summarize(avg_daily = mean(total))
+
+# average monthly by bridge count by year
+bike_counts %>%
+  dplyr::group_by(bridge, month(date), year(date)) %>%
+  dplyr::summarise(avg_monthly = mean(total)) %>% 
+  View()
+
+# Daily average by month all time by bridge count
+avg_monthly  <-  bike_counts %>%
+  dplyr::group_by(bridge, month = month(date, label = T)) %>%
+  dplyr::summarise(avg_monthly_counts = mean(total)) %>% 
+# ^since we're using a month label, we need to reassign the variable to then pipe it to ggplot
+  as.data.frame()
+
+str(avg_monthly)
+
+ggplot(avg_monthly, aes(x = month, y = avg_monthly_counts, color = bridge))+
+  geom_point(size = 2)
+  
+
+```
+
+
+## Fitting models in R
+```{r model fitting}
+# models return list objects describing fit
+
+fit <- lm(total ~ TMIN + TMAX + PRCP + bridge, #total is the dependent variable
+          data = bike_count_wx)
+# ^fits a model of total daily counts against the 4 variables we chose
+
+str(fit)
+summary(fit)
+
+plot(fit)
+
+fit2 <- lm(log(total) ~ TMIN + TMAX + PRCP + bridge,
+           data = bike_count_wx)
+plot(fit2)
+
+lm(total ~ TMIN + TMAX + PRCP + bridge, 
+          data = bike_count_wx) %>% summary()
+
+fit_poly <- lm(total ~ TMIN + TMAX + PRCP + bridge, 
+          data = bike_count_wx)
+summary(fit_poly)
+
+coef(fit_poly)# could access coefs here by name or position
+
+f <- function(x) {198 * x + -0.99 * x^2} # from regression result
+p <- ggplot(data = data.frame(x = 0),
+            mapping = aes(x = x))
+p + stat_function(fun = f, color = "blue", size = 2)+
+  xlim(0,110) +xlab("deg F") + ylab("count")
+
+```
+

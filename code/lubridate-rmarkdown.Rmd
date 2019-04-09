@@ -130,6 +130,7 @@ View(avg_weekly_dist)
 
 avg_weekly_fig <- avg_weekly_dist %>% 
   ggplot(aes(x = as.Date(week.datetime), y = avg_dist))+
+  # ^as.Date is important for the scale below
   geom_bar(stat = "identity", fill = "pink") +
   # ^must use stat=identity or you get a frequency
   scale_x_date(date_breaks = "1 week") +

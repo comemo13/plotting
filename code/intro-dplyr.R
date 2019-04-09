@@ -1,3 +1,6 @@
+# FILTER, GROUP_BY, SUMMARIZE, SELECT, MUTATE
+
+
 # intro to dplyr
 library(dplyr)
 

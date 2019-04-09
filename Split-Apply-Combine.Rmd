@@ -116,3 +116,93 @@ p + stat_function(fun = f, color = "blue", size = 2)+
 
 ```
 
+```{r modelr sneak peak}
+
+bike_count_wx <- bike_count_wx %>% 
+  modelr::add_predictions(fit_poly) %>% 
+  modelr::add_residuals(fit_poly) %>% 
+  mutate(pred = pred, resid = resid)
+head(bike_count_wx)
+
+ggplot() +
+  geom_line(data = bike_count_wx, aes(x = date, y = total),
+            color = "red") +
+  geom_line(data = bike_count_wx, aes(x = date, y = pred),
+            color = "blue") + 
+  facet_grid(bridge ~ .) +
+  ylim(c(0,10000))
+
+```
+
+```{r split-apply-combine}
+# split apply combine approach, I don't really understand but it has something to do with groupby and sumamrize
+
+bw_nested <- bike_count_wx %>% 
+  group_by(bridge) %>% 
+  nest()
+str(bw_nested)
+View(bw_nested)
+# ^collapses everything, each bride has a nest which consists of a list
+
+# fit to single bridge - this is Hawthorne
+lm(total ~ TMIN + TMAX + PRCP,
+          data = bw_nested [[1,"data"]]) %>% 
+  summary()
+
+#tilikum
+lm(total ~ TMIN + TMAX + PRCP,
+          data = bw_nested [[2,"data"]]) %>% 
+  summary()
+
+# fit to all three bridges
+fit_func <- function(df){
+  lm(total ~ TMIN + TMAX + PRCP,
+     data = df)
+}
+
+# one at a time via function
+fit_func(bw_nested [[1,"data"]])
+
+# two at a time
+fits <-  purrr::map(bw_nested$data[1:2],
+                    fit_func)
+
+fits
+
+# three at a time
+bw_nested <- bw_nested %>% 
+  mutate(fit = purrr::map(data, fit_func),
+         tidy = purrr::map(fit, tidy),
+         glance = purrr::map(fit, glance))
+head(bw_nested)
+
+# unpack or combine results
+broom::tidy(bw_nested$fit[[1]])
+
+# unpack for all 3
+bw_nested %>% 
+  unnest(glance) %>% 
+  arrange(desc(r.squared))
+
+bw_nested %>% 
+  select(bridge, tidy) %>% 
+  unnest(tidy) %>% 
+  arrange(term, estimate, bridge)
+
+#trying to figure out which bridge has biggest impact from rain
+fit_func2 <- function(df){
+  lm(log(total) ~ TMIN + TMAX + PRCP,
+     data = df)
+}
+bw_nested <- bw_nested %>% 
+  mutate(fit = purrr::map(data, fit_func2),
+         tidy = purrr::map(fit, tidy),
+         glance = purrr::map(fit, glance))
+head(bw_nested)
+bw_nested %>% 
+  select(bridge, tidy) %>% 
+  unnest(tidy) %>% 
+  arrange(term, estimate, bridge)
+# ^steel bridge is most sensitive to rain
+```
+

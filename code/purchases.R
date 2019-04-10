@@ -3,8 +3,9 @@ library(tidyr)
 library(ggplot2)
 library(readr)
 library(lubridate)
+library(plyr)
 
-pur <- read_csv("data/Purchases.csv")
+pur <- read.csv("data/Purchases.csv", stringsAsFactors = F)
 
 head(pur)
 summary(pur)
@@ -20,7 +21,11 @@ g <- ggplot(TOD_amount, aes(hour, amount))
 g + geom_bar(stat = "identity") + 
   scale_fill_gradient(low="green", high = "red")
 
-g + geom_bar(aes(fill=fl))
+# adding in District based on MeterCode
+pur_df1 <- pur %>% 
+  mutate(district_letter = substr(`Terminal - Terminal ID`,1,1))
 
+plyr::count(pur_df1,"district_letter")
 
-           
+dist_name <- pur_df1$district_letter %>% 
+  ifelse(dist_name %in% c("H","F"),"Downtown","Other")

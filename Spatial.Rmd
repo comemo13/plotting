@@ -1,0 +1,105 @@
+---
+title: "Spatial Stuff"
+author: "Colleen Mossor"
+date: "April 10, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+
+#install.packages("sf")
+library(sf)
+
+#install.packages("lwgeom")
+library(lwgeom)
+
+#install.packages("tidycensus")
+library(tidycensus)
+
+library(ggplot2)
+library(tidyr)
+
+
+
+```
+
+## Working with spatial data
+```{r tidycensus load}
+
+# this load the api key for the session
+# don't committ or push this. work around is to assign this key to ab object and remove the object so that you can't see the key. You can source it from another file. There are some packages that have come out recently to help with this. 
+
+api_key <- "" # make sure you delete the API key before commiting!!!
+
+census_api_key(api_key)
+
+# table of census variables so we can look up codes
+v17 <- load_variables(2017, "acs5", cache = T)
+pdx_tracts_raw <-  get_acs(geography = "tract",
+                           year = 2017,
+                           variables = c("B19013_001", # median income
+                                         "B03002_003", # white
+                                         "B01003_001"), # population
+                           state = "OR",
+                           county = c("Multnomah County"),
+                           geometry = T # need this to get the spacial info
+                           ) %>% 
+  select(GEOID, variable, estimate, geometry)
+
+head(pdx_tracts_raw)
+
+# this comes out as long data, each census tract is repeats with each of the three variables
+# can use a tidy function to take care of this
+
+```
+
+```{r tidycensus tidy}
+# this comes out as long data, each census tract is repeats with each of the three variables
+# can use a tidy function to take care of this
+
+pdx_tracts <- pdx_tracts_raw %>% 
+  spread(key = variable, value = estimate) %>% 
+  dplyr::rename(med_income = B19013_001, white = B03002_003, pop = B01003_001) %>% 
+  mutate(non_white = (pop - white)/pop, 
+         area = st_area(geometry)) # area will have units, may need to override this 
+
+head(pdx_tracts)
+
+# reproject into local planar system
+pdx_tracts_p <- st_transform(pdx_tracts, crs = 2838) %>% #2838 is the code for OR State Plan Meters
+  mutate(area = st_area(geometry)) # rerunning the area for the new projection
+
+plot(pdx_tracts_p)
+# ^if you get an empty plot, you might have a small scale, like when I get points in south africa, it zooms out really really far
+
+# we're going to work with Biketwon data, so we probably want to restrict to more inner areas
+pdx_tracts_p %>% 
+  arrange(desc(area))
+
+pdx_tracts_p <-  pdx_tracts_p %>% 
+  filter(area < units::as_units (100000000,"m^2"))
+plot(pdx_tracts_p)
+
+p <- pdx_tracts_p %>% 
+  ggplot()
+p + geom_sf(aes(fill = med_income)) # defaults with graticules/decimal degrees, there's a way to blnk that out
+
+p + geom_sf(aes(fill = non_white)) + 
+  scale_fill_distiller(direction = 1)+ #flips the colors
+  scale_color_brewer(palette = 5) # this color didn't work, might have to set this in geom_sf
+
+
+
+```
+
+```{r load biketown data}
+
+source("code/fetch_biketown.R")
+biketown <- get_data(start = "01/2018",
+                     end = "12/2018", outdir = "data/biketown/")
+
+```
+
